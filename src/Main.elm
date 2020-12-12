@@ -2,18 +2,44 @@ module Main exposing (main)
 
 import Browser
 import Browser.Navigation as Nav
-import Shared exposing (Flags)
+import Shared exposing (AppKey(..), Flags)
 import Spa.Document as Document exposing (Document)
 import Spa.Generated.Pages as Pages
 import Spa.Generated.Route as Route exposing (Route)
 import Url exposing (Url)
 
 
+type Effect
+    = EffCmd (Cmd Msg)
+    | EffBatch (List Effect)
+    | EffPushUrl AppKey Url
+    | EffLoadUrl String
+
+
+runEffect : Effect -> Cmd Msg
+runEffect effect =
+    case effect of
+        EffCmd cmd ->
+            cmd
+
+        EffBatch effectList ->
+            Cmd.batch <| List.map runEffect effectList
+
+        EffPushUrl (AppKey key) url ->
+            Nav.pushUrl key (Url.toString url)
+
+        EffPushUrl TestKey _ ->
+            Cmd.none
+
+        EffLoadUrl href ->
+            Nav.load href
+
+
 main : Program Flags Model Msg
 main =
     Browser.application
-        { init = init
-        , update = update
+        { init = \flags url key -> init flags url (AppKey key)
+        , update = \msg model -> update msg model |> Tuple.mapSecond runEffect
         , subscriptions = subscriptions
         , view = view >> Document.toBrowserDocument
         , onUrlRequest = LinkClicked
@@ -31,7 +57,7 @@ type alias Model =
     }
 
 
-init : Flags -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init : Flags -> Url -> AppKey -> ( Model, Cmd Msg )
 init flags url key =
     let
         ( shared, sharedCmd ) =
@@ -62,17 +88,17 @@ type Msg
     | Pages Pages.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Effect )
 update msg model =
     case msg of
         LinkClicked (Browser.Internal url) ->
             ( model
-            , Nav.pushUrl model.shared.key (Url.toString url)
+            , EffPushUrl model.shared.key url
             )
 
         LinkClicked (Browser.External href) ->
             ( model
-            , Nav.load href
+            , EffLoadUrl href
             )
 
         UrlChanged url ->
@@ -87,7 +113,7 @@ update msg model =
                     Pages.init (fromUrl url) shared
             in
             ( { model | page = page, shared = Pages.save page shared }
-            , Cmd.map Pages pageCmd
+            , EffCmd <| Cmd.map Pages pageCmd
             )
 
         Shared sharedMsg ->
@@ -99,10 +125,11 @@ update msg model =
                     Pages.load model.page shared
             in
             ( { model | page = page, shared = shared }
-            , Cmd.batch
-                [ Cmd.map Shared sharedCmd
-                , Cmd.map Pages pageCmd
-                ]
+            , EffCmd <|
+                Cmd.batch
+                    [ Cmd.map Shared sharedCmd
+                    , Cmd.map Pages pageCmd
+                    ]
             )
 
         Pages pageMsg ->
@@ -114,7 +141,7 @@ update msg model =
                     Pages.save page model.shared
             in
             ( { model | page = page, shared = shared }
-            , Cmd.map Pages pageCmd
+            , EffCmd <| Cmd.map Pages pageCmd
             )
 
 

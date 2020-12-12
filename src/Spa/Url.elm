@@ -3,17 +3,18 @@ module Spa.Url exposing (Url, create)
 import Browser.Navigation exposing (Key)
 import Dict exposing (Dict)
 import Url
+import Shared exposing (AppKey)
 
 
 type alias Url params =
-    { key : Key
+    { key : AppKey
     , params : params
     , query : Dict String String
     , rawUrl : Url.Url
     }
 
 
-create : params -> Key -> Url.Url -> Url params
+create : params -> AppKey -> Url.Url -> Url params
 create params key url =
     { key = key
     , params = params

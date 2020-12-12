@@ -6,6 +6,7 @@ module Shared exposing
     , subscriptions
     , update
     , view
+    , AppKey(..)
     )
 
 import Browser.Navigation exposing (Key)
@@ -24,13 +25,17 @@ type alias Flags =
     ()
 
 
+type AppKey
+    = TestKey
+    | AppKey Key
+
 type alias Model =
     { url : Url
-    , key : Key
+    , key : AppKey
     }
 
 
-init : Flags -> Url -> Key -> ( Model, Cmd Msg )
+init : Flags -> Url -> AppKey -> ( Model, Cmd Msg )
 init flags url key =
     ( Model url key
     , Cmd.none
