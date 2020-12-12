@@ -1,4 +1,4 @@
-module Pages.Top exposing (Params, Model, Msg, page)
+module Pages.Top exposing (Model, Msg, Params, page)
 
 import Shared
 import Spa.Document exposing (Document)
@@ -6,15 +6,30 @@ import Spa.Page as Page exposing (Page)
 import Spa.Url as Url exposing (Url)
 
 
+type Effect
+    = EffCmd (Cmd Msg)
+    | EffBatch (List Effect)
+
+
+runEffect : Effect -> Cmd Msg
+runEffect effect =
+    case effect of
+        EffCmd cmd ->
+            cmd
+
+        EffBatch effects ->
+            Cmd.batch <| List.map runEffect effects
+
+
 page : Page Params Model Msg
 page =
     Page.application
-        { init = init
-        , update = update
+        { init = \shared url -> init shared url |> Tuple.mapSecond runEffect
+        , update = \msg model -> update msg model |> Tuple.mapSecond runEffect
         , subscriptions = subscriptions
         , view = view
         , save = save
-        , load = load
+        , load = \shared model -> load shared model |> Tuple.mapSecond runEffect
         }
 
 
@@ -30,9 +45,9 @@ type alias Model =
     {}
 
 
-init : Shared.Model -> Url Params -> ( Model, Cmd Msg )
+init : Shared.Model -> Url Params -> ( Model, Effect )
 init shared { params } =
-    ( {}, Cmd.none )
+    ( {}, EffCmd Cmd.none )
 
 
 
@@ -43,11 +58,11 @@ type Msg
     = ReplaceMe
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> ( Model, Effect )
 update msg model =
     case msg of
         ReplaceMe ->
-            ( model, Cmd.none )
+            ( model, EffCmd Cmd.none )
 
 
 save : Model -> Shared.Model -> Shared.Model
@@ -55,9 +70,9 @@ save model shared =
     shared
 
 
-load : Shared.Model -> Model -> ( Model, Cmd Msg )
+load : Shared.Model -> Model -> ( Model, Effect )
 load shared model =
-    ( model, Cmd.none )
+    ( model, EffCmd Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
